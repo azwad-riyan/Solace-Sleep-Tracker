@@ -62,21 +62,36 @@ class CalendarViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun addMockSession() {
+    fun addManualSession(bedTime: LocalTime, wakeTime: LocalTime) {
         val profileId = _currentProfileId.value ?: return
         viewModelScope.launch {
-            val onset = Instant.now().minus(8, ChronoUnit.HOURS)
-            val wake = Instant.now()
+            // Assume bedTime is on previous day if it's after wakeTime
+            val now = Instant.now()
+            val zone = java.time.ZoneId.systemDefault()
+            val today = now.atZone(zone).toLocalDate()
+            
+            var bedDateTime = today.atTime(bedTime)
+            val wakeDateTime = today.atTime(wakeTime)
+            
+            if (bedTime.isAfter(wakeTime)) {
+                bedDateTime = bedDateTime.minusDays(1)
+            }
+            
+            val sleepOnset = bedDateTime.atZone(zone).toInstant()
+            val wakeInstant = wakeDateTime.atZone(zone).toInstant()
+            
+            val durationMinutes = java.time.Duration.between(sleepOnset, wakeInstant).toMinutes().toInt()
+            
             val session = SleepSession(
                 profileId = profileId,
-                sleepOnset = onset,
-                wakeTime = wake,
-                durationMinutes = 480,
+                sleepOnset = sleepOnset,
+                wakeTime = wakeInstant,
+                durationMinutes = durationMinutes,
                 sessionType = SessionType.NIGHT_SLEEP,
                 source = SessionSource.MANUAL,
                 confidenceScore = 100,
                 correctionPending = false,
-                qualityScore = 4
+                qualityScore = 5
             )
             sessionRepository.insertSession(session)
         }

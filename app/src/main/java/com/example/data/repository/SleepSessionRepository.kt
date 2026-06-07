@@ -4,9 +4,12 @@ import com.example.data.local.dao.SleepSessionDao
 import com.example.data.local.entity.SleepSessionEntity
 import com.example.domain.model.SessionSource
 import com.example.domain.model.SessionType
+import com.example.domain.model.SleepInterruption
 import com.example.domain.model.SleepSession
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.time.Instant
 
 class SleepSessionRepository(private val sleepSessionDao: SleepSessionDao) {
@@ -43,10 +46,11 @@ class SleepSessionRepository(private val sleepSessionDao: SleepSessionDao) {
         confidenceScore = confidenceScore,
         correctionPending = correctionPending,
         qualityScore = qualityScore,
+        interruptions = runCatching { Json.decodeFromString<List<SleepInterruption>>(interruptionsJson) }.getOrElse { emptyList() },
+        tags = runCatching { Json.decodeFromString<List<String>>(tagsJson) }.getOrElse { emptyList() },
         notes = notes,
         createdAt = Instant.ofEpochMilli(createdAt),
         lastModifiedAt = Instant.ofEpochMilli(lastModifiedAt)
-        // Ignoring interruptions and tags for brevity/serialization setup
     )
 
     private fun SleepSession.toEntity() = SleepSessionEntity(
@@ -60,10 +64,11 @@ class SleepSessionRepository(private val sleepSessionDao: SleepSessionDao) {
         confidenceScore = confidenceScore,
         correctionPending = correctionPending,
         qualityScore = qualityScore,
-        interruptionsJson = "[]",
-        tagsJson = "[]",
+        interruptionsJson = Json.encodeToString(interruptions),
+        tagsJson = Json.encodeToString(tags),
         notes = notes,
         createdAt = createdAt.toEpochMilli(),
         lastModifiedAt = lastModifiedAt.toEpochMilli()
     )
 }
+

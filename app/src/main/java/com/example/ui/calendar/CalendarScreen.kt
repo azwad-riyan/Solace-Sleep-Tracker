@@ -1,6 +1,7 @@
 package com.example.ui.calendar
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -17,6 +18,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,14 +28,35 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.domain.model.SleepSession
+import com.example.ui.correction.AddSessionDialog
+import com.example.ui.daydetail.DayDetailSheet
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
-
 @Composable
 fun CalendarScreen(viewModel: CalendarViewModel) {
     val sessions by viewModel.sessions.collectAsState()
+    var showAddDialog by remember { mutableStateOf(false) }
+    var selectedSession by remember { mutableStateOf<SleepSession?>(null) }
+
+    if (showAddDialog) {
+        AddSessionDialog(
+            onDismiss = { showAddDialog = false },
+            onSave = { bedTime, wakeTime ->
+                viewModel.addManualSession(bedTime, wakeTime)
+                showAddDialog = false
+            }
+        )
+    }
+    
+    selectedSession?.let { session ->
+        DayDetailSheet(
+            session = session,
+            onDismiss = { selectedSession = null }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -65,7 +90,7 @@ fun CalendarScreen(viewModel: CalendarViewModel) {
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { viewModel.addMockSession() },
+                onClick = { showAddDialog = true },
                 containerColor = MaterialTheme.colorScheme.inversePrimary,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 shape = RoundedCornerShape(16.dp),
@@ -112,6 +137,15 @@ fun CalendarScreen(viewModel: CalendarViewModel) {
 
             item {
                 // Hero Feature Card (In Progress / App Redesign in HTML -> Last Night Sleep here)
+                val latestSession = sessions.firstOrNull()
+                val (durationTitle, progress) = if (latestSession != null) {
+                    val hrs = latestSession.durationMinutes / 60
+                    val mins = latestSession.durationMinutes % 60
+                    "${hrs}h ${mins}m" to (latestSession.durationMinutes / 480f).coerceIn(0f, 1f)
+                } else {
+                    "No data" to 0f
+                }
+                
                 Card(
                     shape = RoundedCornerShape(28.dp),
                     colors = CardDefaults.cardColors(
@@ -142,7 +176,7 @@ fun CalendarScreen(viewModel: CalendarViewModel) {
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    "7h 30m",
+                                    durationTitle,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     fontSize = 32.sp,
                                     fontWeight = FontWeight.Medium
@@ -164,7 +198,7 @@ fun CalendarScreen(viewModel: CalendarViewModel) {
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             LinearProgressIndicator(
-                                progress = { 0.85f },
+                                progress = { progress },
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(8.dp)
@@ -173,7 +207,7 @@ fun CalendarScreen(viewModel: CalendarViewModel) {
                                 trackColor = MaterialTheme.colorScheme.inversePrimary
                             )
                             Text(
-                                "85%",
+                                "${(progress * 100).toInt()}%",
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
@@ -204,7 +238,7 @@ fun CalendarScreen(viewModel: CalendarViewModel) {
                 val formatterTime = DateTimeFormatter.ofPattern("h:mm a")
 
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().clickable { selectedSession = session },
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     border = CardDefaults.outlinedCardBorder(true)

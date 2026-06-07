@@ -11,9 +11,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.clickable
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(viewModel: SettingsViewModel) {
+    val context = LocalContext.current
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -70,6 +75,7 @@ fun SettingsScreen() {
             }
             item {
                 ListItem(
+                    modifier = Modifier.clickable { viewModel.exportData(context) },
                     headlineContent = { Text("Export Data") },
                     supportingContent = { Text("Download your data as CSV") },
                     colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background)

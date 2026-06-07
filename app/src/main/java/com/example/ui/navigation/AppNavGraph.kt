@@ -29,6 +29,8 @@ import com.example.ui.calendar.CalendarViewModelFactory
 import com.example.ui.insights.InsightsScreen
 import com.example.ui.profile.ProfileScreen
 import com.example.ui.settings.SettingsScreen
+import com.example.ui.settings.SettingsViewModel
+import com.example.ui.settings.SettingsViewModelFactory
 
 @Composable
 fun AppNavGraph() {
@@ -114,7 +116,13 @@ fun AppNavGraph() {
                 ProfileScreen()
             }
             composable<SettingsRoute> {
-                SettingsScreen()
+                val settingsViewModel: SettingsViewModel = viewModel(
+                    factory = SettingsViewModelFactory(
+                        appContainer.profileRepository,
+                        appContainer.sleepSessionRepository
+                    )
+                )
+                SettingsScreen(settingsViewModel)
             }
         }
     }
