@@ -8,7 +8,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.repository.ProfileRepository
 import com.example.data.repository.SleepSessionRepository
-import kotlinx.coroutines.flow.firstOrNull
+import com.example.domain.model.DetectionSensitivity
+import com.example.domain.model.Profile
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileWriter
@@ -18,11 +21,54 @@ class SettingsViewModel(
     private val sessionRepository: SleepSessionRepository
 ) : ViewModel() {
 
+    private val _currentProfileId = MutableStateFlow<String?>(null)
+
+    init {
+        viewModelScope.launch {
+            profileRepository.getAllProfiles().collect { list ->
+                if (list.isNotEmpty() && _currentProfileId.value == null) {
+                    _currentProfileId.value = list.first().id
+                }
+            }
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val currentProfile: StateFlow<Profile?> = _currentProfileId
+        .flatMapLatest { id ->
+            if (id != null) {
+                profileRepository.getAllProfiles().map { list -> list.find { it.id == id } }
+            } else {
+                flowOf(null)
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun updateSensitivity(sensitivity: DetectionSensitivity) {
+        val profile = currentProfile.value ?: return
+        viewModelScope.launch {
+            val updated = profile.copy(sensitivity = sensitivity)
+            profileRepository.updateProfile(updated)
+        }
+    }
+
+    fun clearAllData() {
+        viewModelScope.launch {
+            val profiles = profileRepository.getAllProfiles().firstOrNull() ?: emptyList()
+            for (p in profiles) {
+                profileRepository.deleteProfile(p.id)
+                val sessions = sessionRepository.getSessionsForProfile(p.id).firstOrNull() ?: emptyList()
+                for (s in sessions) {
+                    sessionRepository.deleteSession(s.id)
+                }
+            }
+            _currentProfileId.value = null
+        }
+    }
+
     fun exportData(context: Context) {
         viewModelScope.launch {
-            val profiles = profileRepository.getAllProfiles().firstOrNull()
-            val profile = profiles?.firstOrNull() ?: return@launch
-            
+            val profile = currentProfile.value ?: return@launch
             val sessions = sessionRepository.getSessionsForProfile(profile.id).firstOrNull() ?: emptyList()
 
             // Generate CSV

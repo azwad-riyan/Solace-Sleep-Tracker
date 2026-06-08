@@ -16,12 +16,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalTime
-import java.time.temporal.ChronoUnit
+import java.time.ZoneId
+import java.util.UUID
 
 class CalendarViewModel(
     private val profileRepository: ProfileRepository,
@@ -29,27 +30,32 @@ class CalendarViewModel(
 ) : ViewModel() {
 
     private val _currentProfileId = MutableStateFlow<String?>(null)
+    val currentProfileId: StateFlow<String?> = _currentProfileId
 
     init {
         viewModelScope.launch {
-            profileRepository.getAllProfiles().collect { profiles ->
-                if (profiles.isEmpty()) {
-                    val newProfile = Profile(
-                        name = "Julian",
-                        avatarEmoji = "😴",
-                        sleepGoalMinutes = 480,
-                        detectionWindowStart = LocalTime.of(22, 0),
-                        detectionWindowEnd = LocalTime.of(8, 0),
-                        sensitivity = DetectionSensitivity.MEDIUM
-                    )
-                    profileRepository.insertProfile(newProfile)
-                    _currentProfileId.value = newProfile.id
-                } else if (_currentProfileId.value == null) {
-                    _currentProfileId.value = profiles.first().id
+            // Observe profiles list and pick the first available if none is selected
+            profileRepository.getAllProfiles().collect { profilesList ->
+                if (profilesList.isNotEmpty() && _currentProfileId.value == null) {
+                    _currentProfileId.value = profilesList.first().id
                 }
             }
         }
     }
+
+    val profiles: StateFlow<List<Profile>> = profileRepository.getAllProfiles()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val currentProfile: StateFlow<Profile?> = _currentProfileId
+        .flatMapLatest { id ->
+            if (id != null) {
+                profileRepository.getAllProfiles().map { list -> list.find { it.id == id } }
+            } else {
+                flowOf(null)
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val sessions: StateFlow<List<SleepSession>> = _currentProfileId
@@ -62,12 +68,55 @@ class CalendarViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun addManualSession(bedTime: LocalTime, wakeTime: LocalTime) {
+    fun selectProfile(profileId: String) {
+        _currentProfileId.value = profileId
+    }
+
+    fun insertProfile(profile: Profile) {
+        viewModelScope.launch {
+            profileRepository.insertProfile(profile)
+            _currentProfileId.value = profile.id
+        }
+    }
+
+    fun updateProfile(profile: Profile) {
+        viewModelScope.launch {
+            profileRepository.updateProfile(profile)
+        }
+    }
+
+    fun deleteProfile(profileId: String) {
+        viewModelScope.launch {
+            profileRepository.deleteProfile(profileId)
+            if (_currentProfileId.value == profileId) {
+                _currentProfileId.value = profiles.value.firstOrNull { it.id != profileId }?.id
+            }
+        }
+    }
+
+    fun deleteSession(sessionId: String) {
+        viewModelScope.launch {
+            sessionRepository.deleteSession(sessionId)
+        }
+    }
+
+    fun updateSession(session: SleepSession) {
+        viewModelScope.launch {
+            sessionRepository.insertSession(session) // Room uses OnConflictStrategy.REPLACE
+        }
+    }
+
+    fun addManualSession(
+        bedTime: LocalTime,
+        wakeTime: LocalTime,
+        rating: Int = 4,
+        tags: List<String> = emptyList(),
+        notes: String? = null
+    ) {
         val profileId = _currentProfileId.value ?: return
         viewModelScope.launch {
-            // Assume bedTime is on previous day if it's after wakeTime
             val now = Instant.now()
-            val zone = java.time.ZoneId.systemDefault()
+            val zone = ZoneId.systemDefault()
             val today = now.atZone(zone).toLocalDate()
             
             var bedDateTime = today.atTime(bedTime)
@@ -83,6 +132,7 @@ class CalendarViewModel(
             val durationMinutes = java.time.Duration.between(sleepOnset, wakeInstant).toMinutes().toInt()
             
             val session = SleepSession(
+                id = UUID.randomUUID().toString(),
                 profileId = profileId,
                 sleepOnset = sleepOnset,
                 wakeTime = wakeInstant,
@@ -91,7 +141,9 @@ class CalendarViewModel(
                 source = SessionSource.MANUAL,
                 confidenceScore = 100,
                 correctionPending = false,
-                qualityScore = 5
+                qualityScore = rating,
+                tags = tags,
+                notes = notes
             )
             sessionRepository.insertSession(session)
         }

@@ -1,0 +1,58 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Sleeping Yellow Face Base -->
+    <path
+        android:fillColor="#FFD35A"
+        android:pathData="M 45,55 A 36,36 0 1 1 45,54.9 Z"/>
+
+    <!-- Yawning/Sleeping Mouth -->
+    <path
+        android:fillColor="#373D4B"
+        android:pathData="M 45,71 A 8,8 0 1 1 45,70.9 Z"/>
+
+    <!-- Left Closed Eye (Crescent Curving Downwards) -->
+    <path
+        android:strokeColor="#373D4B"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M 24,50 Q 32,58 40,50"/>
+
+    <!-- Right Closed Eye (Crescent Curving Downwards) -->
+    <path
+        android:strokeColor="#373D4B"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M 52,50 Q 60,58 68,50"/>
+
+    <!-- Red Zzz Cartoon Letters (Top Right) -->
+    <!-- Large Z -->
+    <path
+        android:strokeColor="#E55B5B"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M 75,12 L 91,12 L 75,28 L 91,28"/>
+
+    <!-- Medium z -->
+    <path
+        android:strokeColor="#E55B5B"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M 64,26 L 76,26 L 64,38 L 76,38"/>
+
+    <!-- Small z -->
+    <path
+        android:strokeColor="#E55B5B"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M 55,38 L 64,38 L 55,47 L 64,47"/>
+
+</vector>
